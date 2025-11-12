@@ -1,14 +1,13 @@
 {
-  "name": "virtuals",
+  "name": "virtuals-sniper",
   "version": "1.0.0",
   "main": "src/index.ts",
   "module": "CommonJS",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start:dev": "tsx src/index.ts"
   },
   "keywords": [],
-  "author": "",
+  "author": "Alessandro Victor",
   "license": "ISC",
   "description": "",
   "dependencies": {

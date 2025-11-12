@@ -13,12 +13,12 @@ const GAS_LIMIT = '0.05';
 dotenv.config();
 
 const BASE_RPC2 = "https://mainnet.base.org";
-const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+const WALLET_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "";
 
 const connectToBaseNetwork = async (): Promise<ethers.JsonRpcProvider | undefined> => {
     try {
-        const provider = new ethers.AnkrProvider("base", process.env.ANKR_KEY);
-        //const provider = new ethers.JsonRpcProvider(BASE_RPC2);
+        // const provider = new ethers.AnkrProvider("base", process.env.ANKR_KEY);
+        const provider = new ethers.JsonRpcProvider(BASE_RPC2);
 
         const network = await provider.getNetwork();
         console.log(`Conectado à rede: ${network.name} (Chain ID: ${network.chainId})`);
@@ -29,7 +29,7 @@ const connectToBaseNetwork = async (): Promise<ethers.JsonRpcProvider | undefine
 }
 
 const tokenMonitor = async (provider: ethers.JsonRpcProvider, tokenAddress: string, transactionAddress: string): Promise<void> => {
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(WALLET_PRIVATE_KEY, provider);
     const approveInterface = new ethers.Interface(approveAbi);
     const buyContract = new ethers.Contract(VIRTUALS_BUY_ADDRESS, launchAbi, wallet)
     const tokenContract = new ethers.Contract(tokenAddress, approveAbi, provider)
@@ -95,8 +95,6 @@ const tokenMonitor = async (provider: ethers.JsonRpcProvider, tokenAddress: stri
                 console.log(`\x1b[32m2X atingido, retirando risco\x1b[0m`);
                 await sellToken(tokenAddress, rawBalance / 2n, provider, tokenName);
             }
-            //console.log('force sell')
-            //await sellToken(tokenAddress, rawBalance, provider, tokenName)
             await new Promise(resolve => setTimeout(resolve, 200));
         }
     } catch (error) {
@@ -108,7 +106,7 @@ const tokenMonitor = async (provider: ethers.JsonRpcProvider, tokenAddress: stri
 }
 
 const approveVirtuals = async (provider: ethers.JsonRpcProvider, tokenAddress?: string, amount?: bigint): Promise<boolean> => {
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(WALLET_PRIVATE_KEY, provider);
     const approveContrat = new ethers.Contract(tokenAddress ?? VIRTUALS_TOKEN_ADDRESS, approveAbi, wallet);
     const nonce = await wallet.getNonce();
 
@@ -145,7 +143,7 @@ const approveVirtuals = async (provider: ethers.JsonRpcProvider, tokenAddress?: 
 }
 
 const buyToken = async (tokenAddress: string, amount: string, provider: ethers.JsonRpcProvider): Promise<string> => {
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(WALLET_PRIVATE_KEY, provider);
     const buyContract = new ethers.Contract(VIRTUALS_BUY_ADDRESS, launchAbi, wallet);
     const nonce = await wallet.getNonce();
 
@@ -184,7 +182,7 @@ const buyToken = async (tokenAddress: string, amount: string, provider: ethers.J
 }
 
 const sellToken = async (tokenAddress: string, amount: bigint, provider: ethers.JsonRpcProvider, tokenName: string): Promise<void> => {
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(WALLET_PRIVATE_KEY, provider);
     const sellContract = new ethers.Contract(VIRTUALS_BUY_ADDRESS, launchAbi, wallet)
 
     await approveVirtuals(provider, tokenAddress, amount);
@@ -226,35 +224,35 @@ async function main() {
     if (!provider) return;
     approveVirtuals(provider);
 
-    //provider?.on("block", async (blockNumber) => {
-    const block = await provider.getBlock(25065271);
-    if (!block) return;
+    provider?.on("block", async (blockNumber) => {
+        const block = await provider.getBlock(blockNumber);
+        if (!block) return;
 
-    block.transactions.map(async transaction => {
-        const transactionInfo = await provider.getTransaction(transaction);
-        if (!transactionInfo) return;
-        if (transactionInfo.to !== VIRTUALS_BUY_ADDRESS) return;
-        const contract = new ethers.Interface(launchAbi);
-        const receipt = await provider.getTransactionReceipt(transaction);
-        if (!receipt) return;
-        const contractAddress = receipt.logs.find(log => log.data === '0x')?.address;
-        if (!contractAddress) {
-            console.error('Error ao extrair o id do contrato do token');
-            return;
-        }
-        console.log('Found an new token!!! - ', contractAddress);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            const decoded = contract.parseTransaction({ data: transactionInfo.data });
-            if (!decoded) return;
-            const buyHash = await buyToken(contractAddress, '0.1', provider);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            await tokenMonitor(provider, contractAddress, buyHash);
-        } catch (error) {
-            console.error("Erro ao processar a transação:", error);
-        }
+        block.transactions.map(async transaction => {
+            const transactionInfo = await provider.getTransaction(transaction);
+            if (!transactionInfo) return;
+            if (transactionInfo.to !== VIRTUALS_BUY_ADDRESS) return;
+            const contract = new ethers.Interface(launchAbi);
+            const receipt = await provider.getTransactionReceipt(transaction);
+            if (!receipt) return;
+            const contractAddress = receipt.logs.find(log => log.data === '0x')?.address;
+            if (!contractAddress) {
+                console.error('Error ao extrair o id do contrato do token');
+                return;
+            }
+            console.log('Found an new token!!! - ', contractAddress);
+            try {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                const decoded = contract.parseTransaction({ data: transactionInfo.data });
+                if (!decoded) return;
+                const buyHash = await buyToken(contractAddress, '0.1', provider);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                await tokenMonitor(provider, contractAddress, buyHash);
+            } catch (error) {
+                console.error("Erro ao processar a transação:", error);
+            }
+        })
     })
-    //})
 }
 
 async function manualBuy(tokenAddress: string, amount: string) {
@@ -279,15 +277,4 @@ async function manualSell(tokenAddress: string) {
     await sellToken(tokenAddress, 712n, provider, 'MANUAL')
 }
 
-
-const MANUAL_BUY_TOKEN_ADDRESS = '0x896F6B0113980F431a49Afe0C1D00486C89b26dd';
-const MANUAL_BUY_AMOUNT = '10';
-const MANUAL_BUY_HASH = '0xf77c3ebcac0f7e538bee4195d21476e65b3b4431be5a41c231ced84950b18d51';
-
-//manualBuy(MANUAL_BUY_TOKEN_ADDRESS, MANUAL_BUY_AMOUNT)
-manualMonitor(MANUAL_BUY_TOKEN_ADDRESS, MANUAL_BUY_HASH)
-//manualSell(MANUAL_BUY_TOKEN_ADDRESS)
-
-//main()
-
-//CREATE ORDER OUT 0x3d1b389f1707DB3d4c5344d5669DBda6b5D6Ab51
+main()
