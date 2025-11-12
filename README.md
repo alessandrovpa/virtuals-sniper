@@ -1,5 +1,10 @@
 # Virtuals Sniper
 
+⚠️ IMPORTANT NOTICE — NOT WORKING ANYMORE
+
+This project no longer works as-is. The Virtuals protocol has been updated and the contracts/flows this bot relied on have changed. The README below is retained for historical and reference purposes only. Do not run this code on mainnet without first auditing and updating it to match the current Virtuals protocol contracts and workflows.
+
+
 A small Web3 "sniper" for the Virtuals protocol (Base network). This project listens for new token launches through the Virtuals buy contract, attempts a quick buy, then monitors the position and can liquidate on configurable conditions.
 
 This repository contains a minimal TypeScript implementation that uses ethers.js to:
